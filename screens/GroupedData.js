@@ -1,0 +1,232 @@
+import React, { useState, useContext } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+} from "react-native";
+import Icon from "react-native-vector-icons/FontAwesome5";
+import { arr3dp, grouped } from "../Calculations";
+import GroupedDataSolution from "../components/GroupedDataSolution";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
+import { saveContext } from "../context/SaveContext";
+
+const GroupedData = ({ navigation }) => {
+  const [lci, setLci] = useState("");
+  const [uci, setUci] = useState("");
+  const [frequencies, setFrequencies] = useState("");
+  const [table, setTable] = useState(null);
+  const [table2, setTable2] = useState(null);
+  const SaveContext = useContext(saveContext);
+  const { setSaves } = SaveContext;
+
+  const validate = (lci, uci, frequencies) => {
+    if (lci.split(",").length > uci.split(",").length) {
+      return "Every Upper class interval must have a Lower class interval";
+    } else if (lci.split(",").length < uci.split(",").length) {
+      return "Every Lower class interval must have an Upper class interval";
+    } else if (lci.split(",").some((val) => isNaN(Number(val)))) {
+      return "All Lower class intervals should be a number";
+    } else if (uci.split(",").some((val) => isNaN(Number(val)))) {
+      return "All Upper class intervals should be a number";
+    } else if (frequencies.split(",").length > uci.split(",").length) {
+      return "Every frequency must have a class interval";
+    } else if (frequencies.split(",").length < uci.split(",").length) {
+      return "Every class interval must have a frequency";
+    } else if (
+      frequencies.split(",").some((val) => isNaN(Number(val))) ||
+      frequencies
+        .split(",")
+        .some(
+          (val) =>
+            !Number.isInteger(Number(val)) ||
+            frequencies.split(",").some((val) => val.trim() === "")
+        )
+    ) {
+      return "All frequencies should be an integer";
+    } else {
+      return null;
+    }
+  };
+
+  const calculate = () => {
+    if (!validate(lci, uci, frequencies)) {
+      const data = grouped(lci, uci, frequencies);
+      const intervals = data.lci.map(
+        (val) =>
+          `${val}-${data.uci[data.lci.findIndex((val2) => val2 === val)]}`
+      );
+      setTable({
+        tableTitle: ["Class Intervals", "midpoint(x)", "f", "f(x)"],
+        tableSums: [
+          [""],
+          [""],
+          [`=${data.freq.reduce((a, b) => a + b)}`],
+          [`=${data.fx.reduce((a, b) => a + b)}`],
+        ],
+        tableData: [intervals, data.midpoint, data.freq, data.fx],
+        mean: data.mean,
+        median: data.median,
+        mode: data.mode,
+        medianValues: data.medianValues,
+        modalValues: data.modalValues,
+      });
+      setTable2({
+        tableTitle: ["cf", "x - x̄", "(x - x̄)^2", "F((x - x̄)^2)"],
+        tableSums: [
+          [""],
+          [`=${data.x_xbar.reduce((a, b) => a + b).toFixed(3)}`],
+          [`=${data.x_xbar2.reduce((a, b) => a + b).toFixed(3)}`],
+          [`=${data.f_x_xbar2.reduce((a, b) => a + b).toFixed(3)}`],
+        ],
+        tableData: [
+          data.cf,
+          arr3dp(data.x_xbar),
+          arr3dp(data.x_xbar2),
+          arr3dp(data.f_x_xbar2),
+        ],
+        variance: data.variance,
+        sd: data.sd,
+      });
+    } else {
+      setTable(null);
+      setTable2(null);
+      Alert.alert(
+        "Input Error",
+        validate(lci, uci, frequencies),
+
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  const saveWork = async () => {
+    const obj = {
+      type: "groupedData",
+      time: Date.now(),
+      key: uuidv4(),
+      table,
+      table2,
+    };
+    AsyncStorage.getItem("savedWork").then((value) => {
+      if (!value) {
+        AsyncStorage.setItem("savedWork", JSON.stringify([obj]));
+        setSaves([obj]);
+      } else {
+        const savedWork = JSON.parse(value);
+        AsyncStorage.setItem("savedWork", JSON.stringify([...savedWork, obj]));
+        setSaves([...savedWork, obj]);
+      }
+      Alert.alert(
+        "Save Status",
+        "Saved successfully",
+
+        [{ text: "OK" }]
+      );
+    });
+  };
+  return (
+    <ScrollView>
+      <View style={styles.container}>
+        <Text style={styles.header}>Grouped Data</Text>
+        <View style={styles.inputView}>
+          <Text style={{ fontSize: 13, fontWeight: "bold" }}>
+            Note: Class intervals should be inputed in ascending or descending
+            order.
+          </Text>
+          <Text style={styles.label}>Lower Class Intervals:</Text>
+          <TextInput
+            style={styles.input}
+            value={lci}
+            onChangeText={(val) => setLci(val)}
+            keyboardType="numeric"
+            placeholder="L1,L2,L3,...Ln"
+            multiline
+          />
+        </View>
+        <View style={styles.inputView}>
+          <Text style={styles.label}>
+            Upper Class Intervals (respectively):
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={uci}
+            onChangeText={(val) => setUci(val)}
+            keyboardType="numeric"
+            placeholder="U1,U2,U3,...Un"
+            multiline
+          />
+        </View>
+        <View style={styles.inputView}>
+          <Text style={styles.label}>Input Frequencies (respectively):</Text>
+          <TextInput
+            style={styles.input}
+            value={frequencies}
+            onChangeText={(val) => setFrequencies(val)}
+            keyboardType="numeric"
+            placeholder="F1,F2,F3,...Fn"
+            multiline
+          />
+        </View>
+        <TouchableOpacity style={styles.btn} onPress={calculate}>
+          <Icon type="font-awesome" name="clipboard" color="#fff" size={19} />
+          <Text style={styles.btnText}>Calculate</Text>
+        </TouchableOpacity>
+
+        {table && <GroupedDataSolution table={table} table2={table2} />}
+        {table && (
+          <TouchableOpacity style={styles.btn} onPress={saveWork}>
+            <Icon type="font-awesome" name="save" color="#fff" size={19} />
+            <Text style={styles.btnText}>Save Work</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </ScrollView>
+  );
+};
+export default GroupedData;
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  header: {
+    fontSize: 20,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 17,
+    marginBottom: 4,
+    color: "#616161",
+  },
+  inputView: {
+    marginBottom: 25,
+  },
+  input: {
+    backgroundColor: "#e0e0e0",
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 7,
+    height: 50,
+  },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    backgroundColor: "#2196f3",
+    borderRadius: 30,
+  },
+  btnText: {
+    fontSize: 17,
+    marginLeft: 8,
+    color: "#fff",
+  },
+});
