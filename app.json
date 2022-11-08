@@ -1,4 +1,8 @@
 {
   "name": "StatsCalc",
-  "displayName": "StatsCalc"
+  "displayName": "StatsCalc",
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-1322230982869799~6312604822",
+    "ios_app_id": "ca-app-pub-1322230982869799~6312604822"
+  }
 }
