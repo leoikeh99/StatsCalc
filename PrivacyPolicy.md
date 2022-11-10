@@ -1,4 +1,4 @@
-## Shake Alarm Clock: Privacy policy
+## Statistics Calculator: Privacy policy
 
 Welcome to the Statistics Calculator app for Android!
 
